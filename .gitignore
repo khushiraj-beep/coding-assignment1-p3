@@ -3,3 +3,6 @@
 __pycache__/
 *.py[cod]
 .vscode/
+# Project-specific exclusions
+.vscode/
+*.py[cod]
