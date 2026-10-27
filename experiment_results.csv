@@ -1,0 +1,4 @@
+experiment,time_seconds,retransmissions,success
+Baseline,0.214,0,True
+10% packet loss,0.726,6,True
+50 ms delay,0.869,0,True
