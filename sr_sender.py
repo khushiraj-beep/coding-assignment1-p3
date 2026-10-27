@@ -8,11 +8,23 @@ from packet import encode_packet, decode_packet
 from rto import RTOEstimator
 
 HOST = "127.0.0.1"
-PORT = 5000
+PORT = 5001                 # Send through the emulator
 CHUNK_SIZE = 1024
 WINDOW_SIZE = 4
 MAX_RETRIES = 15
 TRANSFER_ID = "transfer-1"
+
+
+def create_udp_socket():
+    client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    # Windows-specific fix for UDP connection-reset errors.
+    if os.name == "nt" and hasattr(socket, "SIO_UDP_CONNRESET"):
+        client.ioctl(socket.SIO_UDP_CONNRESET, False)
+
+    client.bind(("0.0.0.0", 0))
+    client.settimeout(0.05)
+    return client
 
 
 def send_file(filename, host=HOST, port=PORT):
@@ -31,16 +43,15 @@ def send_file(filename, host=HOST, port=PORT):
     next_seq = 1
     base = 1
 
-    client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    client.bind(("0.0.0.0", 0))
-    client.settimeout(0.05)
+    client = create_udp_socket()
+    destination = (host, port)
 
     print(f"Sending {os.path.basename(filename)}: {total} chunks")
+    print(f"Sending through emulator at {host}:{port}")
 
     try:
-        # Selective Repeat: send packets within the sliding window.
         while base <= total:
-
+            # Fill the Selective Repeat sending window.
             while (
                 next_seq <= total
                 and next_seq < base + WINDOW_SIZE
@@ -54,7 +65,7 @@ def send_file(filename, host=HOST, port=PORT):
                 }
 
                 encoded = encode_packet(packet)
-                client.sendto(encoded, (host, port))
+                client.sendto(encoded, destination)
 
                 outstanding[next_seq] = {
                     "encoded": encoded,
@@ -65,26 +76,25 @@ def send_file(filename, host=HOST, port=PORT):
                 print(f"Sent packet {next_seq}")
                 next_seq += 1
 
-            # Receive and process individual ACKs.
+            # Receive ACKs.
             try:
                 raw, _ = client.recvfrom(65535)
                 ack = decode_packet(raw)
 
-                if ack["type"] != "ACK":
+                if ack.get("type") != "ACK":
                     continue
 
-                if ack["transfer_id"] != TRANSFER_ID:
+                if ack.get("transfer_id") != TRANSFER_ID:
                     continue
 
-                seq = ack["ack_num"]
+                seq = ack.get("ack_num")
 
                 if seq not in outstanding:
                     continue
 
                 record = outstanding[seq]
 
-                # Karn's algorithm: do not use retransmitted
-                # packets to calculate RTT.
+                # Karn's algorithm: do not sample RTT after retransmission.
                 if record["retries"] == 0:
                     rtt = time.monotonic() - record["sent_at"]
                     estimator.update(rtt)
@@ -93,11 +103,10 @@ def send_file(filename, host=HOST, port=PORT):
                 del outstanding[seq]
 
                 print(
-                    f"ACK {seq}; RTO = "
-                    f"{estimator.get_rto():.3f}s"
+                    f"ACK {seq}; "
+                    f"RTO = {estimator.get_rto():.3f}s"
                 )
 
-                # Move the base past contiguous ACKs.
                 while base in acknowledged:
                     base += 1
 
@@ -106,18 +115,19 @@ def send_file(filename, host=HOST, port=PORT):
             except (ValueError, OSError) as error:
                 print(f"Ignored invalid ACK: {error}")
 
-            # Retransmit only packets whose timeout expired.
+            # Retransmit only timed-out, unacknowledged packets.
             now = time.monotonic()
 
             for seq, record in list(outstanding.items()):
                 if now - record["sent_at"] >= estimator.get_rto():
-
                     if record["retries"] >= MAX_RETRIES:
                         raise TimeoutError(
-                            f"Packet {seq} exceeded retry limit"
+                            f"Packet {seq} exceeded retry limit. "
+                            "Check that the receiver and emulator "
+                            "are both running."
                         )
 
-                    client.sendto(record["encoded"], (host, port))
+                    client.sendto(record["encoded"], destination)
                     record["sent_at"] = time.monotonic()
                     record["retries"] += 1
 
@@ -128,7 +138,7 @@ def send_file(filename, host=HOST, port=PORT):
                         f"RTO = {estimator.get_rto():.3f}s"
                     )
 
-        # Send END and wait for its acknowledgement.
+        # Send END and wait for its acknowledgment.
         end_packet = {
             "type": "END",
             "transfer_id": TRANSFER_ID,
@@ -142,7 +152,7 @@ def send_file(filename, host=HOST, port=PORT):
         deadline = time.monotonic() + 10.0
 
         while time.monotonic() < deadline:
-            client.sendto(encoded_end, (host, port))
+            client.sendto(encoded_end, destination)
 
             end_wait = min(
                 time.monotonic() + estimator.get_rto(),
@@ -159,10 +169,10 @@ def send_file(filename, host=HOST, port=PORT):
                     ack = decode_packet(raw)
 
                     if (
-                        ack["type"] == "ACK"
-                        and ack["transfer_id"] == TRANSFER_ID
-                        and ack["ack_num"] == total
-                        and ack["seq_num"] == total + 1
+                        ack.get("type") == "ACK"
+                        and ack.get("transfer_id") == TRANSFER_ID
+                        and ack.get("ack_num") == total
+                        and ack.get("seq_num") == total + 1
                     ):
                         end_ack_received = True
                         break
@@ -178,7 +188,7 @@ def send_file(filename, host=HOST, port=PORT):
         if not end_ack_received:
             raise TimeoutError(
                 "Receiver did not acknowledge END. "
-                "Restart the receiver and try again."
+                "Check receiver and emulator output."
             )
 
         print("File transfer completed successfully.")
@@ -191,11 +201,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Selective Repeat UDP sender"
     )
-    parser.add_argument(
-        "filename",
-        nargs="?",
-        default="sample.txt",
-    )
+    parser.add_argument("filename", nargs="?", default="sample.txt")
     parser.add_argument("--host", default=HOST)
     parser.add_argument("--port", type=int, default=PORT)
     args = parser.parse_args()
