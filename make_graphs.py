@@ -1,34 +1,86 @@
 
 import csv
+import os
+from collections import defaultdict
+
 import matplotlib.pyplot as plt
 
-with open("experiment_results.csv", newline="") as file:
-    results = list(csv.DictReader(file))
+RESULTS_FILE = "experiment_results.csv"
+GRAPH_DIR = "graphs"
 
-names = [row["experiment"] for row in results]
-times = [float(row["time_seconds"]) for row in results]
-retransmissions = [
-    int(row["retransmissions"] or 0) for row in results
-]
 
-# Graph 1: Transfer time
-plt.figure()
-plt.bar(names, times)
-plt.title("Transfer Time Under Different Network Conditions")
-plt.xlabel("Experiment")
-plt.ylabel("Time (seconds)")
-plt.tight_layout()
-plt.savefig("transfer_time.png")
-plt.close()
+def make_graphs():
+    if not os.path.exists(RESULTS_FILE):
+        print(f"Missing results file: {RESULTS_FILE}")
+        return
 
-# Graph 2: Retransmissions
-plt.figure()
-plt.bar(names, retransmissions)
-plt.title("Retransmissions Under Different Network Conditions")
-plt.xlabel("Experiment")
-plt.ylabel("Number of Retransmissions")
-plt.tight_layout()
-plt.savefig("retransmissions.png")
-plt.close()
+    with open(RESULTS_FILE, newline="") as file:
+        rows = list(csv.DictReader(file))
 
-print("Graphs saved: transfer_time.png and retransmissions.png")
+    if not rows:
+        print("No experiment results available.")
+        return
+
+    required = {
+        "protocol", "experiment", "time_seconds",
+        "retransmissions", "success"
+    }
+    if not required.issubset(rows[0]):
+        print("The CSV does not yet contain protocol comparison results.")
+        print("Run the updated experiment runner first.")
+        return
+
+    os.makedirs(GRAPH_DIR, exist_ok=True)
+
+    # Group repeated runs by protocol and experiment condition.
+    grouped = defaultdict(list)
+    for row in rows:
+        if row["success"].strip().lower() == "true":
+            grouped[(row["protocol"], row["experiment"])].append(row)
+
+    conditions = sorted({row["experiment"] for row in rows})
+    protocols = ["SW", "GBN", "SR"]
+
+    for metric, title, filename in [
+        ("time_seconds", "Transfer Time by Protocol",
+         "transfer_time_comparison.png"),
+        ("retransmissions", "Retransmissions by Protocol",
+         "retransmissions_comparison.png"),
+    ]:
+        plt.figure(figsize=(9, 5))
+        plotted = False
+
+        for protocol in protocols:
+            values = []
+            labels = []
+
+            for condition in conditions:
+                samples = grouped.get((protocol, condition), [])
+                if samples:
+                    values.append(
+                        sum(float(s[metric]) for s in samples) / len(samples)
+                    )
+                    labels.append(condition)
+
+            if values:
+                plt.plot(labels, values, marker="o", label=protocol)
+                plotted = True
+
+        if plotted:
+            plt.title(title)
+            plt.xlabel("Network Condition")
+            plt.ylabel(metric.replace("_", " ").title())
+            plt.legend()
+            plt.grid(True)
+            plt.tight_layout()
+            path = os.path.join(GRAPH_DIR, filename)
+            plt.savefig(path)
+            print(f"Saved {path}")
+        else:
+            print(f"No successful data available for {title}")
+
+        plt.close()
+
+
+if __name__ == "__main__":
+    make_graphs()

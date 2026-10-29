@@ -1,4 +1,10 @@
-experiment,time_seconds,retransmissions,success
-Baseline,0.214,0,True
-10% packet loss,0.726,6,True
-50 ms delay,0.869,0,True
+protocol,experiment,time_seconds,retransmissions,success
+SW,Baseline,1.805,0,True
+GBN,Baseline,1.222,0,True
+SR,Baseline,1.219,0,True
+SW,10% packet loss,4.37,5,True
+GBN,10% packet loss,2.775,12,True
+SR,10% packet loss,3.065,4,True
+SW,50 ms delay,3.622,0,True
+GBN,50 ms delay,1.899,0,True
+SR,50 ms delay,1.862,0,True
