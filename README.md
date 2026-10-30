@@ -15,7 +15,7 @@ The project includes three ARQ protocols, a UDP channel emulator and an experime
 - Implement retransmission mechanisms to recover from packet loss.
 - Simulate network conditions such as packet loss and delay.
 - Transfer files and verify the received output.
-- Compare protocol performance using transfer time and retransmission counts.
+- Compare protocol performance using transfer time, retransmission counts and goodput.
 
 ## 3. Technologies Used
 
@@ -29,38 +29,39 @@ The project includes three ARQ protocols, a UDP channel emulator and an experime
 
 ```text
 coding-assignment1-p3/
-│
-├── packet.py
-├── rto.py
-├── channel_emulator.py
-│
-├── sw_sender.py
-├── gbn_sender.py
-├── arq_receiver.py
-│
-├── sr_sender.py
-├── sr_receiver.py
-│
-├── run_experiments.py
-├── make_graphs.py
-├── experiment_results.csv
-│
-├── test_packet.py
-├── test_sr.py
-├── test_sr_receiver_manual.py
-├── test_sr_sender_delay.py
-├── test_sr_sender_loss.py
-├── test_udp_corruption.py
-├── test_udp_invalid.py
-│
-├── sample.txt
-├── received_sw.txt
-├── received_gbn.txt
-├── received_sr.txt
-│
-└── graphs/
-    ├── transfer_time_comparison.png
-    └── retransmissions_comparison.png
+|
+|-- packet.py
+|-- rto.py
+|-- channel_emulator.py
+|
+|-- sw_sender.py
+|-- gbn_sender.py
+|-- arq_receiver.py
+|
+|-- sr_sender.py
+|-- sr_receiver.py
+|
+|-- run_experiments.py
+|-- make_graphs.py
+|-- experiment_results.csv
+|
+|-- test_packet.py
+|-- test_sr.py
+|-- test_sr_receiver_manual.py
+|-- test_sr_sender_delay.py
+|-- test_sr_sender_loss.py
+|-- test_udp_corruption.py
+|-- test_udp_invalid.py
+|
+|-- sample.txt
+|-- received_sw.txt
+|-- received_gbn.txt
+|-- received_sr.txt
+|
+|-- graphs/
+    |-- transfer_time_comparison.png
+    |-- retransmissions_comparison.png
+    |-- goodput_comparison.png
 ```
 
 ## 5. Protocol Implementations
@@ -81,7 +82,7 @@ The sender maintains a transmission window and retransmits only those packets fo
 
 The channel emulator is used to introduce different network conditions during file transfer.
 
-The supported conditions include:
+The emulator supports:
 
 - Packet loss
 - Packet corruption
@@ -145,23 +146,29 @@ py sr_sender.py sample.txt
 
 ## 8. Experimental Evaluation
 
-The three protocols were evaluated under baseline conditions, 10% packet loss and 50 ms network delay.
+The three protocols were evaluated under three conditions:
 
-The following results were obtained:
-
-| Protocol | Condition | Transfer Time (s) | Retransmissions |
-|---|---|---:|---:|
-| SW | Baseline | 1.754 | 0 |
-| GBN | Baseline | 1.181 | 0 |
-| SR | Baseline | 1.172 | 0 |
-| SW | 10% packet loss | 3.810 | 4 |
-| GBN | 10% packet loss | 2.746 | 12 |
-| SR | 10% packet loss | 1.603 | 2 |
-| SW | 50 ms delay | 3.584 | 0 |
-| GBN | 50 ms delay | 1.885 | 0 |
-| SR | 50 ms delay | 1.972 | 0 |
+1. Baseline
+2. 10% packet loss
+3. 50 ms network delay
 
 All nine experiment runs completed successfully.
+
+### Experimental Results
+
+| Protocol | Condition | Transfer Time (s) | Retransmissions | Goodput (bytes/s) |
+|---|---|---:|---:|---:|
+| SW | Baseline | 0.684 | 0 | 54,862.29 |
+| GBN | Baseline | 0.135 | 0 | 277,074.89 |
+| SR | Baseline | 0.119 | 0 | 316,013.33 |
+| SW | 10% packet loss | 1.180 | 1 | 31,820.89 |
+| GBN | 10% packet loss | 1.094 | 8 | 34,314.02 |
+| SR | 10% packet loss | 0.372 | 2 | 100,875.38 |
+| SW | 50 ms delay | 2.492 | 0 | 15,062.57 |
+| GBN | 50 ms delay | 0.819 | 0 | 45,833.03 |
+| SR | 50 ms delay | 0.804 | 0 | 46,700.05 |
+
+**Measurement note:** Transfer time is measured around the sender subprocess execution. Receiver and channel-emulator startup time is excluded. Goodput is calculated as the input file size in bytes divided by this measured sender execution time. These are application-level measurements, not a measurement of raw link capacity.
 
 ### Performance Graphs
 
@@ -173,7 +180,18 @@ All nine experiment runs completed successfully.
 
 ![Retransmissions Comparison](graphs/retransmissions_comparison.png)
 
-The results show differences in transfer time and retransmission behaviour across the three protocols. Under the tested packet-loss condition, Selective Repeat recorded the lowest transfer time and retransmission count.
+**Goodput Comparison**
+
+![Goodput Comparison](graphs/goodput_comparison.png)
+
+### Observations
+
+- Under baseline conditions, SR recorded the lowest transfer time and highest goodput among the three protocols in this experiment.
+- Under 10% packet loss, SR recorded the lowest transfer time and highest goodput. GBN recorded more retransmissions than SW and SR in this run.
+- Under 50 ms delay, SR was marginally faster than GBN and recorded slightly higher goodput.
+- SW was the slowest protocol under the tested delay condition.
+
+These observations apply to the tested file, configuration and runs; they should not be treated as universal performance guarantees.
 
 ## 9. File Integrity Verification
 
@@ -185,11 +203,9 @@ The following hash was obtained for each file:
 1489DB471C4B885498DE2EB6B161DD42CB2260CF31AEA7E716DC2E91AA5A4414
 ```
 
-The matching hashes confirm that the received files were identical to the original file in these tests.
+The matching hashes confirm that the received files were identical to the original file in the verified run.
 
 ## 10. Testing
-
-The project includes tests for packet encoding and decoding, RTO behaviour, packet handling and transfer scenarios involving different network conditions.
 
 The test suite was executed using:
 
@@ -197,11 +213,18 @@ The test suite was executed using:
 py -m pytest -v
 ```
 
-The four tests in the verified test run passed successfully.
+**Verified test result: 4 tests passed.**
+
+The passing tests covered:
+
+- RTO initial value
+- RTO increase after timeout
+- RTO maximum limit
+- Packet encoding/decoding round-trip
 
 ## 11. Conclusion
 
-This project demonstrates how reliability can be implemented over UDP using different ARQ protocols. The experimental results provide a comparison of their behaviour under normal and impaired network conditions.
+This project demonstrates how reliability can be implemented over UDP using different ARQ protocols. The experimental results compare their behaviour under baseline conditions, packet loss and network delay.
 
 The implementation also demonstrates the use of acknowledgements, retransmissions, timeout handling, channel emulation and file integrity verification.
 
