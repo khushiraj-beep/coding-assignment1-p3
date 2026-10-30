@@ -146,29 +146,29 @@ py sr_sender.py sample.txt
 
 ## 8. Experimental Evaluation
 
-The three protocols were evaluated under three conditions:
+The three protocols were evaluated under three network conditions:
 
 1. Baseline
 2. 10% packet loss
 3. 50 ms network delay
 
-All nine experiment runs completed successfully.
+All nine experiment runs completed successfully in the latest test run.
 
 ### Experimental Results
 
 | Protocol | Condition | Transfer Time (s) | Retransmissions | Goodput (bytes/s) |
 |---|---|---:|---:|---:|
-| SW | Baseline | 0.684 | 0 | 54,862.29 |
-| GBN | Baseline | 0.135 | 0 | 277,074.89 |
-| SR | Baseline | 0.119 | 0 | 316,013.33 |
-| SW | 10% packet loss | 1.180 | 1 | 31,820.89 |
-| GBN | 10% packet loss | 1.094 | 8 | 34,314.02 |
-| SR | 10% packet loss | 0.372 | 2 | 100,875.38 |
-| SW | 50 ms delay | 2.492 | 0 | 15,062.57 |
-| GBN | 50 ms delay | 0.819 | 0 | 45,833.03 |
-| SR | 50 ms delay | 0.804 | 0 | 46,700.05 |
+| SW | Baseline | 0.771 | 0 | 48,680.58 |
+| GBN | Baseline | 0.194 | 0 | 193,913.54 |
+| SR | Baseline | 0.195 | 0 | 192,051.28 |
+| SW | 10% packet loss | 1.797 | 2 | 20,889.40 |
+| GBN | 10% packet loss | 1.203 | 8 | 31,214.01 |
+| SR | 10% packet loss | 0.514 | 2 | 73,080.61 |
+| SW | 50 ms delay | 2.584 | 0 | 14,526.29 |
+| GBN | 50 ms delay | 0.872 | 0 | 43,044.17 |
+| SR | 50 ms delay | 0.823 | 0 | 45,626.83 |
 
-**Measurement note:** Transfer time is measured around the sender subprocess execution. Receiver and channel-emulator startup time is excluded. Goodput is calculated as the input file size in bytes divided by this measured sender execution time. These are application-level measurements, not a measurement of raw link capacity.
+**Measurement methodology:** Transfer time is measured around the sender subprocess execution. Receiver and channel-emulator startup time is excluded. Goodput is calculated as the input file size in bytes divided by the measured sender execution time. These are application-level measurements, not raw network link capacity.
 
 ### Performance Graphs
 
@@ -186,12 +186,13 @@ All nine experiment runs completed successfully.
 
 ### Observations
 
-- Under baseline conditions, SR recorded the lowest transfer time and highest goodput among the three protocols in this experiment.
-- Under 10% packet loss, SR recorded the lowest transfer time and highest goodput. GBN recorded more retransmissions than SW and SR in this run.
-- Under 50 ms delay, SR was marginally faster than GBN and recorded slightly higher goodput.
-- SW was the slowest protocol under the tested delay condition.
+- Under baseline conditions, GBN recorded the lowest transfer time, closely followed by SR.
+- Under 10% packet loss, SR achieved the lowest transfer time and highest goodput.
+- GBN recorded the highest number of retransmissions under the tested packet-loss condition.
+- Under 50 ms delay, SR performed slightly better than GBN in both transfer time and goodput.
+- SW recorded the highest transfer time under all three tested conditions.
 
-These observations apply to the tested file, configuration and runs; they should not be treated as universal performance guarantees.
+These observations are based on the latest experiment run and the tested file and configuration. Results may vary across repeated runs.
 
 ## 9. File Integrity Verification
 
@@ -203,7 +204,7 @@ The following hash was obtained for each file:
 1489DB471C4B885498DE2EB6B161DD42CB2260CF31AEA7E716DC2E91AA5A4414
 ```
 
-The matching hashes confirm that the received files were identical to the original file in the verified run.
+The matching hashes confirm that the received files were identical to the original file in the latest verified run.
 
 ## 10. Testing
 
