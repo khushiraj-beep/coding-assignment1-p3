@@ -1,10 +1,10 @@
 protocol,experiment,time_seconds,retransmissions,success
-SW,Baseline,1.808,0,True
-GBN,Baseline,1.183,0,True
-SR,Baseline,1.183,0,True
-SW,10% packet loss,3.304,3,True
-GBN,10% packet loss,2.732,8,True
-SR,10% packet loss,1.635,5,True
-SW,50 ms delay,3.595,0,True
-GBN,50 ms delay,1.878,0,True
-SR,50 ms delay,1.872,0,True
+SW,Baseline,1.754,0,True
+GBN,Baseline,1.181,0,True
+SR,Baseline,1.172,0,True
+SW,10% packet loss,3.81,4,True
+GBN,10% packet loss,2.746,12,True
+SR,10% packet loss,1.603,2,True
+SW,50 ms delay,3.584,0,True
+GBN,50 ms delay,1.885,0,True
+SR,50 ms delay,1.972,0,True
